@@ -7,6 +7,26 @@ set -e  # Exit on any error
 
 echo "Starting setup process..."
 
+echo "Installing git"
+apt-get install git-all
+
+echo "Installing Python 3.11"
+apt update && sudo apt upgrade -y
+
+# 2. Install prerequisites for PPAs
+apt install -y software-properties-common
+
+# 3. Add deadsnakes PPA
+add-apt-repository ppa:deadsnakes/ppa -y
+apt update
+
+# 4. Install Python 3.11
+apt install -y python3.11 python3.11-venv python3.11-dev
+
+#Install pip
+apt update
+apt install -y python3-pip
+
 # Install CUDA 12.9 first
 echo "Installing CUDA 12.9..."
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-ubuntu2404.pin
