@@ -20,8 +20,8 @@ apt install -y software-properties-common
 add-apt-repository ppa:deadsnakes/ppa -y
 apt update
 
-# 4. Install Python 3.11
-apt install -y python3.11 python3.11-venv python3.11-dev
+# 4. Install Python 3.11 with full package
+apt install -y python3.11 python3.11-venv python3.11-dev python3-full
 
 #Install pip
 apt update
@@ -37,11 +37,6 @@ cp /var/cuda-repo-ubuntu2404-12-9-local/cuda-*-keyring.gpg /usr/share/keyrings/
 apt-get update
 apt-get -y install cuda-toolkit-12-9
 
-# Install/upgrade PyTorch to latest version with CUDA 12.9 support
-echo "Upgrading PyTorch to latest version..."
-pip3 uninstall -y torch torchvision torchaudio || true
-pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu129
-
 # Update system packages with automatic yes
 echo "Updating package lists..."
 apt update -y
@@ -51,6 +46,18 @@ apt upgrade -y
 
 echo "Performing distribution upgrade..."
 apt dist-upgrade -y
+
+# Create and activate virtual environment
+echo "Creating Python virtual environment..."
+python3.11 -m venv /opt/verl_env
+source /opt/verl_env/bin/activate
+
+# Upgrade pip in virtual environment
+pip install --upgrade pip
+
+# Install/upgrade PyTorch to latest version with CUDA 12.9 support
+echo "Installing PyTorch to latest version..."
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
 
 # Install NVIDIA apex
 echo "Cloning and installing NVIDIA apex..."
@@ -67,13 +74,13 @@ pip install --no-deps -e .
 USE_MEGATRON=0 bash scripts/install_vllm_sglang_mcore.sh
 cd ..
 
-echo "Setup completed successfully!"
-
 # Install requirements from verl folder
 echo "Installing requirements from verl/requirements.txt..."
 cd verl
 pip install -r requirements.txt
 cd ..
+
+echo "Setup completed successfully!"
 
 # -------- Additional Setup: Jupyter Configuration --------
 
@@ -96,8 +103,8 @@ log "Installing nano & tmux via apt…"
 $SUDO apt update -y
 $SUDO apt install -y nano tmux
 
-# -------- Install Jupyter --------
-log "Installing Jupyter packages with pip…"
+# -------- Install Jupyter in virtual environment --------
+log "Installing Jupyter packages with pip in virtual environment…"
 pip install jupyter notebook jupyterlab
 
 # -------- Configure Jupyter for remote use --------
@@ -127,15 +134,18 @@ SESSION="jupyter_session"
 log "Starting Jupyter Lab in tmux session '${SESSION}' on port ${JUPYTER_PORT}…"
 tmux has-session -t "${SESSION}" 2>/dev/null && tmux kill-session -t "${SESSION}" || true
 
-# Launch Jupyter Lab in tmux
+# Launch Jupyter Lab in tmux (with virtual environment activated)
 tmux new-session -d -s "${SESSION}" \
-  "bash -lc 'exec jupyter lab --port=${JUPYTER_PORT} --no-browser --allow-root'"
+  "bash -lc 'source /opt/verl_env/bin/activate && exec jupyter lab --port=${JUPYTER_PORT} --no-browser --allow-root'"
 
 # -------- Poll for server & print token --------
 log "Fetching Jupyter server token…"
 
-# Helper to query server list
-server_list() { jupyter server list 2>/dev/null || true; }
+# Helper to query server list (with virtual environment)
+server_list() { 
+  source /opt/verl_env/bin/activate
+  jupyter server list 2>/dev/null || true
+}
 
 TOKEN_LINE=""
 for i in $(seq 1 90); do
@@ -158,16 +168,19 @@ cat <<INFO
 ========================================================
 ✅ Complete setup finished.
 
+Virtual Environment: /opt/verl_env
+To activate manually: source /opt/verl_env/bin/activate
+
 Jupyter:     running in tmux session '${SESSION}' on port ${JUPYTER_PORT}
 
 Attach to the session:
   tmux attach -t ${SESSION}
 
 Set a password (optional, one-time):
-  tmux new-window -t ${SESSION} -n setpass "jupyter lab password"
+  tmux new-window -t ${SESSION} -n setpass "source /opt/verl_env/bin/activate && jupyter lab password"
 
 List running servers:
-  tmux new-window -t ${SESSION} -n servers "jupyter server list"
+  tmux new-window -t ${SESSION} -n servers "source /opt/verl_env/bin/activate && jupyter server list"
   
 SSH port-forward from your laptop:
   ssh -N -L ${JUPYTER_PORT}:localhost:${JUPYTER_PORT} user@your-server
@@ -194,5 +207,5 @@ else
 
   echo -e "\n3) Manual checks you can run:"
   echo "   tmux attach -t ${SESSION}"
-  echo "   jupyter server list"
+  echo "   source /opt/verl_env/bin/activate && jupyter server list"
 fi
