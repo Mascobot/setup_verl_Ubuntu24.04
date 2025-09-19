@@ -11,7 +11,7 @@ echo "Installing git"
 apt-get install git-all
 
 echo "Installing Python 3.11"
-apt update && sudo apt upgrade -y
+apt update && apt upgrade -y
 
 # 2. Install prerequisites for PPAs
 apt install -y software-properties-common
